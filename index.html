@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador QMS WeldTrace | Academia BDS</title>
+    <!-- Carga de Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Carga de Fuente (Inter) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Iconos (Ionicons) -->
+    <script type="module" src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Fondo gris claro de QMS */
+        }
+        /* Oculta las fases por defecto */
+        .phase-content {
+            display: none;
+        }
+        /* Estilos para el modal */
+        #results-modal {
+            transition: opacity 0.3s ease-in-out;
+        }
+        .modal-hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .modal-visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
+        /* Estilos de formulario mejorados */
+        .form-label {
+            @apply block text-sm font-medium text-gray-700 mb-1;
+        }
+        .form-input, .form-select {
+            @apply mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm;
+        }
+
+        /* --- Estilos para Radio Buttons S/N (Sí/No) --- */
+        .radio-sn-group {
+            @apply flex rounded-md overflow-hidden border border-gray-300;
+        }
+        .radio-sn-group input[type="radio"] {
+            @apply hidden; /* Oculta el radio button real */
+        }
+        .radio-sn-label {
+            @apply cursor-pointer w-full text-center p-2 font-medium text-sm transition-all duration-150;
+            background-color: #f9fafb;
+            color: #6b7280;
+        }
+        /* Estilo para 'No' (N) */
+        .radio-sn-group input[type="radio"][value="N"] + .radio-sn-label {
+            @apply border-r border-gray-300;
+        }
+        /* Estilo para 'Sí' (S) - Checked */
+        .radio-sn-group input[type="radio"][value="S"]:checked + .radio-sn-label {
+            background-color: #10B981; /* green-500 */
+            color: white;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+        /* Estilo para 'No' (N) - Checked */
+        .radio-sn-group input[type="radio"][value="N"]:checked + .radio-sn-label {
+            background-color: #EF4444; /* red-500 */
+            color: white;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+        /* Estilo para 'N/A' (No Aplica) - Checked */
+         .radio-sn-group input[type="radio"][value="NA"]:checked + .radio-sn-label {
+            background-color: #6B7280; /* gray-500 */
+            color: white;
+        }
+
+        /* Estilos de Reporte */
+        .report-status-approved {
+            @apply px-4 py-1 inline-block text-base font-bold text-green-800 bg-green-100 border border-green-300 rounded-full;
+        }
+        .report-status-rejected {
+            @apply px-4 py-1 inline-block text-base font-bold text-red-800 bg-red-100 border border-red-300 rounded-full;
+        }
+        .report-section {
+            @apply mt-4 pt-4 border-t border-gray-200;
+        }
+        .report-label { @apply text-xs font-semibold text-gray-500 uppercase tracking-wider; }
+        .report-value { @apply text-lg font-medium text-gray-900; }
+        .non-conformity-list {
+            @apply list-disc list-inside mt-2 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-3xl mx-auto bg-white shadow-2xl rounded-xl overflow-hidden">
+        
+        <!-- Encabezado de la Aplicación (Temática QMS/WeldTrace) -->
+        <header class="bg-gray-800 text-white p-5 md:p-6">
+            <div class="flex items-center space-x-4">
+                <!-- Icono de "Calidad" o "Trazabilidad" -->
+                <ion-icon name="shield-checkmark-outline" class="text-5xl text-blue-400"></ion-icon>
+                <div>
+                    <h1 class="text-xl md:text-2xl font-bold">Módulo de Inspección WeldTrace</h1>
+                    <h2 class="text-sm md:text-base font-light text-gray-300">Sistema de Gestión de Calidad (QMS) | Academia de Soldadura BDS</h2>
+                </div>
+            </div>
+        </header>
+
+        <!-- Contenedor Principal de la App -->
+        <main id="app-container" class="p-5 md:p-8">
+
+            <!-- Fase 0: Identificación del Proyecto (Estado Inicial) -->
+            <section id="phase-0" class="phase-content">
+                <h3 class="text-xl font-bold text-gray-900">Iniciar Nuevo Registro de Trazabilidad</h3>
+                <p class="mt-2 text-gray-600">
+                    Ingrese los datos de identificación del proyecto para comenzar la inspección y trazabilidad del componente.
+                </p>
+                <form id="form-phase0" class="mt-6 space-y-5">
+                    <div>
+                        <label for="p0-project" class="form-label">Identificación del Proyecto/Componente</label>
+                        <input type="text" id="p0-project" class="form-input" placeholder="Ej: Proyecto A-2025, Válvula 45B" value="Proyecto A-2025, Válvula 45B" required>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label for="p0-welder" class="form-label">Identificación del Soldador (ID)</label>
+                            <input type="text" id="p0-welder" class="form-input" placeholder="Ej: WP-007" value="WP-007 (Juan Pérez)" required>
+                        </div>
+                         <div>
+                            <label for="p0-wps" class="form-label">Referencia del WPS</label>
+                            <input type="text" id="p0-wps" class="form-input" placeholder="Ej: WPS-MIG-003 Rev. 2" value="WPS-MIG-003 Rev. 2" required>
+                        </div>
+                         <div>
+                            <label for="p0-joint" class="form-label">Ubicación (Joint ID)</label>
+                            <input type="text" id="p0-joint" class="form-input" placeholder="Ej: Junta L3-C4" value="Junta L3-C4" required>
+                        </div>
+                    </div>
+                     <!-- Botón de Iniciar -->
+                    <div class="pt-5 border-t border-gray-200">
+                        <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            Iniciar Registro de Trazabilidad
+                        </button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Título de Fase (Reutilizable) -->
+            <header id="phase-header" class="mb-6 hidden">
+                <button onclick="showPhase('phase-0')" class="mb-2 text-sm font-medium text-blue-600 hover:text-blue-800 flex items-center">
+                    <ion-icon name="chevron-back-outline" class="mr-1"></ion-icon>
+                    Editar Datos Iniciales
+                </button>
+                <div class="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                    <h4 class="text-xs font-semibold text-gray-500 uppercase">Inspeccionando:</h4>
+                    <div class="flex flex-wrap justify-between items-center text-sm font-medium text-gray-700">
+                        <span id="header-joint"></span>
+                        <span id="header-wps" class="text-gray-500"></span>
+                        <span id="header-welder" class="text-gray-500"></span>
+                    </div>
+                </div>
+                <h3 id="phase-title" class="text-2xl font-bold text-gray-900 mt-4"></h3>
+            </header>
+
+            <!-- Fase 1: Inspección Pre-Soldadura -->
+            <section id="phase-1" class="phase-content">
+                <form id="form-phase1" class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+                        
+                        <!-- Item 1: Material Base -->
+                        <div>
+                            <label class="form-label">1. Material Base Correcto (Según WPS)</label>
+                            <div class="radio-sn-group">
+                                <input type="radio" id="p1-mat-n" name="p1-material" value="N" required>
+                                <label for="p1-mat-n" class="radio-sn-label">No Conforme</label>
+                                <input type="radio" id="p1-mat-s" name="p1-material" value="S" checked>
+                                <label for="p1-mat-s" class="radio-sn-label">Conforme (S)</label>
+                            </div>
+                        </div>
+
+                        <!-- Item 2: Preparación de Junta -->
+                        <div>
+                            <label class="form-label">2. Preparación de Junta (Ángulo, Limpieza)</label>
+                            <div class="radio-sn-group">
+                                <input type="radio" id="p1-junta-n" name="p1-junta" value="N" required>
+                                <label for="p1-junta-n" class="radio-sn-label">No Conforme</label>
+                                <input type="radio" id="p1-junta-s" name="p1-junta" value="S" checked>
+                                <label for="p1-junta-s" class="radio-sn-label">Conforme (S)</label>
+                            </div>
+                        </div>
+
+                        <!-- Item 3: Calificación del Soldador -->
+                        <div>
+                            <label class="form-label">3. Calificación (WPQ) Vigente para WPS</label>
+                            <div class="radio-sn-group">
+                                <input type="radio" id="p1-wpq-n" name="p1-wpq" value="N" required>
+                                <label for="p1-wpq-n" class="radio-sn-label">No Conforme</label>
+                                <input type="radio" id="p1-wpq-s" name="p1-wpq" value="S" checked>
+                                <label for="p1-wpq-s" class="radio-sn-label">Conforme (S)</label>
+                            </div>
+                        </div>
+
+                        <!-- Item 4: Temperatura de Precalentamiento -->
+                        <div>
+                            <label class="form-label">4. Temp. de Precalentamiento ($T_p$) Mínima</label>
+                            <div class="flex items-center space-x-2">
+                                <div class="radio-sn-group w-2/3">
+                                    <input type="radio" id="p1-tp-na" name="p1-tp" value="NA" checked>
+                                    <label for="p1-tp-na" class="radio-sn-label">N/A</label>
+                                    <input type="radio" id="p1-tp-n" name="p1-tp" value="N" required>
+                                    <label for="p1-tp-n" class="radio-sn-label">No Conforme</label>
+                                    <input type="radio" id="p1-tp-s" name="p1-tp" value="S">
+                                    <label for="p1-tp-s" class="radio-sn-label">Conforme (S)</label>
+                                </div>
+                                <div class="relative w-1/3">
+                                    <input type="number" id="p1-tp-valor" class="form-input pr-10" placeholder="Valor">
+                                    <span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 text-sm">°C</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                     <!-- Botón de Fase 1 -->
+                    <div class="pt-5 border-t border-gray-200">
+                        <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            Confirmar Fase 1 y Continuar
+                        </button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Fase 2: Inspección Durante la Soldadura -->
+            <section id="phase-2" class="phase-content">
+                <form id="form-phase2" class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+                        
+                        <!-- Item 1: Amperaje -->
+                        <div>
+                            <label class="form-label">1. Amperaje (I) (Dentro del rango WPS)</label>
+                            <div class="radio-sn-group">
+                                <input type="radio" id="p2-amps-n" name="p2-amps" value="N" required>
+                                <label for="p2-amps-n" class="radio-sn-label">No Conforme</label>
+                                <input type="radio" id="p2-amps-s" name="p2-amps" value="S" checked>
+                                <label for="p2-amps-s" class="radio-sn-label">Conforme (S)</label>
+                            </div>
+                        </div>
+
+                        <!-- Item 2: Voltaje -->
+                        <div>
+                            <label class="form-label">2. Voltaje (U) (Dentro del rango WPS)</label>
+                            <div class="radio-sn-group">
+                                <input type="radio" id="p2-volts-n" name="p2-volts" value="N" required>
+                                <label for="p2-volts-n" class="radio-sn-label">No Conforme</label>
+                                <input type="radio" id="p2-volts-s" name="p2-volts" value="S" checked>
+                                <label for="p2-volts-s" class="radio-sn-label">Conforme (S)</label>
+                            </div>
+                        </div>
+
+                        <!-- Item 3: Aporte Térmico (HI) -->
+                        <div>
+                            <label class="form-label">3. Aporte Térmico (HI) Controlado</label>
+                            <div class="radio-sn-group">
+                                <input type="radio" id="p2-hi-n" name="p2-hi" value="N" required>
+                                <label for="p2-hi-n" class="radio-sn-label">No Conforme</label>
+                                <input type="radio" id="p2-hi-s" name="p2-hi" value="S" checked>
+                                <label for="p2-hi-s" class="radio-sn-label">Conforme (S)</label>
+                            </div>
+                        </div>
+
+                        <!-- Item 4: Limpieza Inter-pase -->
+                        <div>
+                            <label class="form-label">4. Limpieza Inter-pase (Escoria/Óxidos)</label>
+                            <div class="radio-sn-group">
+                                <input type="radio" id="p2-clean-n" name="p2-clean" value="N" required>
+                                <label for="p2-clean-n" class="radio-sn-label">No Conforme</label>
+                                <input type="radio" id="p2-clean-s" name="p2-clean" value="S" checked>
+                                <label for="p2-clean-s" class="radio-sn-label">Conforme (S)</label>
+                            </div>
+                        </div>
+                    </div>
+                     <!-- Botón de Fase 2 -->
+                    <div class="pt-5 border-t border-gray-200">
+                        <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            Confirmar Fase 2 y Continuar
+                        </button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Fase 3: Inspección Post-Soldadura -->
+            <section id="phase-3" class="phase-content">
+                 <form id="form-phase3" class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+                        
+                        <!-- Item 1: Inspección Visual (VT) -->
+                        <div>
+                            <label for="p3-vt" class="form-label">1. Inspección Visual (VT) (Defectos)</label>
+                            <select id="p3-vt" class="form-select" required>
+                                <option value="Aceptada">Aceptada</option>
+                                <option value="Rechazada">Rechazada</option>
+                            </select>
+                        </div>
+
+                        <!-- Item 2: Refuerzo del Cordón -->
+                        <div>
+                            <label class="form-label">2. Refuerzo del Cordón (Tolerancia)</label>
+                            <div class="radio-sn-group">
+                                <input type="radio" id="p3-refuerzo-n" name="p3-refuerzo" value="N" required>
+                                <label for="p3-refuerzo-n" class="radio-sn-label">No Conforme</label>
+                                <input type="radio" id="p3-refuerzo-s" name="p3-refuerzo" value="S" checked>
+                                <label for="p3-refuerzo-s" class="radio-sn-label">Conforme (S)</label>
+                            </div>
+                        </div>
+
+                        <!-- Item 3: Método NDT -->
+                        <div>
+                            <label for="p3-ndt-metodo" class="form-label">3. Método NDT Aplicado</label>
+                            <input type="text" id="p3-ndt-metodo" class="form-input" placeholder="Ej: PT, MT, UT, RT" value="PT (Líquidos Penetrantes)">
+                        </div>
+
+                        <!-- Item 4: Resultado NDT -->
+                        <div>
+                            <label for="p3-ndt-result" class="form-label">4. Resultado NDT</label>
+                            <select id="p3-ndt-result" class="form-select" required>
+                                <option value="Aceptable">Aceptable</option>
+                                <option value="Pendiente">Pendiente</option>
+                                <option value="Rechazado">Rechazado</option>
+                            </select>
+                        </div>
+                    </div>
+                     <!-- Botón de Fase 3 -->
+                    <div class="pt-5 border-t border-gray-200">
+                        <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                            Finalizar y Generar Reporte
+                        </button>
+                    </div>
+                </form>
+            </section>
+
+        </main>
+
+        <!-- Pie de Página -->
+        <footer class="bg-gray-900 text-gray-400 p-5 text-xs text-center rounded-b-xl">
+            <p class="font-semibold text-gray-100">Declaración de Trazabilidad WeldTrace</p>
+            <p class="mt-1">
+                Esta documentación digital es la base de la trazabilidad legal y de calidad del componente, asegurando la conformidad en cada etapa del proceso de inspección.
+            </p>
+             <p class="mt-2 text-gray-500">WeldTrace QMS Simulator | Academia de Soldadura BDS</p>
+        </footer>
+    </div>
+
+    <!-- Modal de Resultados (Reporte) -->
+    <div id="results-modal" class="modal-hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-75">
+        <div class="relative w-full max-w-3xl bg-white rounded-lg shadow-xl overflow-hidden">
+            <!-- Encabezado del Modal -->
+            <div class="flex justify-between items-center p-5 bg-gray-50 border-b border-gray-200">
+                <h3 id="results-title" class="text-xl font-semibold text-gray-900">Reporte de Trazabilidad de Soldadura</h3>
+                <button onclick="hideResults()" class="text-gray-400 hover:text-gray-600">
+                    <ion-icon name="close-outline" class="text-3xl"></ion-icon>
+                </button>
+            </div>
+            
+            <!-- Contenido del Modal -->
+            <div id="results-content" class="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+                <!-- El contenido se inyectará aquí -->
+            </div>
+
+            <!-- Pie del Modal -->
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
+                <span class="text-xs text-gray-500">WeldTrace QMS Report</span>
+                <button onclick="hideResults()" class="py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // --- Almacén de Datos de Inspección ---
+        const inspectionData = {
+            project: "",
+            welder: "",
+            wps: "",
+            joint: "",
+            phase1: {},
+            phase2: {},
+            phase3: {}
+        };
+
+        // --- Referencias de UI ---
+        const allPhases = document.querySelectorAll('.phase-content');
+        const phaseHeader = document.getElementById('phase-header');
+        const phaseTitle = document.getElementById('phase-title');
+        
+        // Referencias de Encabezado
+        const headerJoint = document.getElementById('header-joint');
+        const headerWps = document.getElementById('header-wps');
+        const headerWelder = document.getElementById('header-welder');
+
+        // Referencias de Formularios
+        const formPhase0 = document.getElementById('form-phase0');
+        const formPhase1 = document.getElementById('form-phase1');
+        const formPhase2 = document.getElementById('form-phase2');
+        const formPhase3 = document.getElementById('form-phase3');
+
+        // Referencias de Modal
+        const resultsModal = document.getElementById('results-modal');
+        const resultsTitle = document.getElementById('results-title');
+        const resultsContent = document.getElementById('results-content');
+
+
+        /**
+         * Muestra una fase específica de la inspección.
+         */
+        function showPhase(phaseId) {
+            allPhases.forEach(phase => {
+                if (phase) phase.style.display = 'none';
+            });
+            
+            const activePhase = document.getElementById(phaseId);
+            if (activePhase) {
+                activePhase.style.display = 'block';
+            }
+
+            // Gestionar el encabezado
+            if (phaseId === 'phase-0') {
+                phaseHeader.style.display = 'none';
+            } else {
+                phaseHeader.style.display = 'block';
+                if (phaseId === 'phase-1') phaseTitle.innerText = 'Fase 1: Inspección Pre-Soldadura';
+                if (phaseId === 'phase-2') phaseTitle.innerText = 'Fase 2: Monitoreo en Proceso';
+                if (phaseId === 'phase-3') phaseTitle.innerText = 'Fase 3: Inspección Post-Soldadura';
+            }
+        }
+
+        /**
+         * Muestra el modal de resultados.
+         */
+        function showResults(title, htmlContent) {
+            resultsTitle.innerText = title;
+            resultsContent.innerHTML = htmlContent;
+            resultsModal.classList.remove('modal-hidden');
+            resultsModal.classList.add('modal-visible');
+        }
+
+        /**
+         * Oculta el modal de resultados.
+         */
+        function hideResults() {
+            resultsModal.classList.add('modal-hidden');
+            resultsModal.classList.remove('modal-visible');
+            // Opcional: Volver al inicio después de cerrar el reporte
+            showPhase('phase-0');
+        }
+
+        // --- Lógica de Manejo de Fases ---
+
+        /**
+         * FASE 0: Captura de datos iniciales.
+         */
+        function handlePhase0(event) {
+            event.preventDefault();
+            inspectionData.project = document.getElementById('p0-project').value;
+            inspectionData.welder = document.getElementById('p0-welder').value;
+            inspectionData.wps = document.getElementById('p0-wps').value;
+            inspectionData.joint = document.getElementById('p0-joint').value;
+
+            // Actualizar el encabezado reutilizable
+            headerJoint.innerText = `Joint ID: ${inspectionData.joint}`;
+            headerWps.innerText = `WPS: ${inspectionData.wps}`;
+            headerWelder.innerText = `Soldador: ${inspectionData.welder}`;
+
+            showPhase('phase-1');
+        }
+
+        /**
+         * FASE 1: Captura de datos Pre-Soldadura.
+         */
+        function handlePhase1(event) {
+            event.preventDefault();
+            inspectionData.phase1 = {
+                material: document.querySelector('input[name="p1-material"]:checked').value,
+                junta: document.querySelector('input[name="p1-junta"]:checked').value,
+                wpq: document.querySelector('input[name="p1-wpq"]:checked').value,
+                tp_status: document.querySelector('input[name="p1-tp"]:checked').value,
+                tp_valor: document.getElementById('p1-tp-valor').value || "N/A"
+            };
+            showPhase('phase-2');
+        }
+
+        /**
+         * FASE 2: Captura de datos Durante la Soldadura.
+         */
+        function handlePhase2(event) {
+            event.preventDefault();
+            inspectionData.phase2 = {
+                amps: document.querySelector('input[name="p2-amps"]:checked').value,
+                volts: document.querySelector('input[name="p2-volts"]:checked').value,
+                hi: document.querySelector('input[name="p2-hi"]:checked').value,
+                clean: document.querySelector('input[name="p2-clean"]:checked').value
+            };
+            showPhase('phase-3');
+        }
+
+        /**
+         * FASE 3: Captura de datos Post-Soldadura y Generación de Reporte.
+         */
+        function handlePhase3(event) {
+            event.preventDefault();
+            inspectionData.phase3 = {
+                vt: document.getElementById('p3-vt').value,
+                refuerzo: document.querySelector('input[name="p3-refuerzo"]:checked').value,
+                ndt_metodo: document.getElementById('p3-ndt-metodo').value || "N/A",
+                ndt_result: document.getElementById('p3-ndt-result').value
+            };
+            generateReport();
+        }
+
+        /**
+         * Genera el Reporte de Trazabilidad Final.
+         */
+        function generateReport() {
+            let finalStatus = "APROBADO";
+            const nonConformities = [];
+            let requiredAction = "Ninguna. El componente pasa a la siguiente etapa de ensamblaje o servicio.";
+
+            // --- Lógica de Aprobación/Rechazo ---
+            // Fase 1
+            if (inspectionData.phase1.material === 'N') nonConformities.push("Fase 1: Material Base NO Conforme.");
+            if (inspectionData.phase1.junta === 'N') nonConformities.push("Fase 1: Preparación de Junta NO Conforme.");
+            if (inspectionData.phase1.wpq === 'N') nonConformities.push("Fase 1: Calificación del Soldador (WPQ) NO Conforme o vencida.");
+            if (inspectionData.phase1.tp_status === 'N') nonConformities.push(`Fase 1: Temperatura de Precalentamiento ($T_p$) NO Conforme (Valor: ${inspectionData.phase1.tp_valor}°C).`);
+            
+            // Fase 2
+            if (inspectionData.phase2.amps === 'N') nonConformities.push("Fase 2: Amperaje (I) fuera de rango WPS.");
+            if (inspectionData.phase2.volts === 'N') nonConformities.push("Fase 2: Voltaje (U) fuera de rango WPS.");
+            if (inspectionData.phase2.hi === 'N') nonConformities.push("Fase 2: Aporte Térmico (HI) fuera de control.");
+            if (inspectionData.phase2.clean === 'N') nonConformities.push("Fase 2: Limpieza Inter-pase deficiente.");
+
+            // Fase 3
+            if (inspectionData.phase3.vt === 'Rechazada') nonConformities.push("Fase 3: Inspección Visual (VT) RECHAZADA (Defectos superficiales detectados).");
+            if (inspectionData.phase3.refuerzo === 'N') nonConformities.push("Fase 3: Refuerzo del cordón fuera de tolerancia.");
+            if (inspectionData.phase3.ndt_result === 'Rechazado') nonConformities.push(`Fase 3: Ensayo No Destructivo (NDT: ${inspectionData.phase3.ndt_metodo}) RECHAZADO.`);
+
+            // Determinar Estado Final
+            if (nonConformities.length > 0) {
+                finalStatus = "RECHAZADO";
+                requiredAction = "Reparación requerida según procedimiento. Se debe emitir una orden de trabajo de reparación y re-inspeccionar la junta.";
+            }
+
+            const statusClass = (finalStatus === "APROBADO") ? "report-status-approved" : "report-status-rejected";
+
+            // --- Construir HTML del Reporte ---
+            const reportHtml = `
+                <div class="mb-4 text-center">
+                    <span class="report-label">Estado Final del Cordón</span>
+                    <div class="${statusClass} mt-1">${finalStatus}</div>
+                </div>
+
+                <div class="report-section">
+                    <span class="report-label">Resumen de Trazabilidad</span>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">
+                        <div>
+                            <span class="text-xs text-gray-500">Joint ID</span>
+                            <p class="report-value">${inspectionData.joint}</p>
+                        </div>
+                         <div>
+                            <span class="text-xs text-gray-500">Proyecto</span>
+                            <p class="report-value">${inspectionData.project}</p>
+                        </div>
+                        <div>
+                            <span class="text-xs text-gray-500">Soldador</span>
+                            <p class="report-value">${inspectionData.welder}</p>
+                        </div>
+                        <div>
+                            <span class="text-xs text-gray-500">WPS Aplicado</span>
+                            <p class="report-value">${inspectionData.wps}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="report-section">
+                    <span class="report-label">Resumen de Conformidad</span>
+                    ${nonConformities.length > 0
+                        ? `<p class="text-sm text-gray-600 mt-2">Se detectaron ${nonConformities.length} No Conformidades:</p>
+                           <ul class="non-conformity-list">
+                                ${nonConformities.map(nc => `<li>${nc}</li>`).join('')}
+                           </ul>`
+                        : `<p class="mt-2 text-sm font-medium text-green-700 p-3 bg-green-50 border border-green-200 rounded-md">
+                            Todos los puntos de inspección (Fases 1, 2 y 3) se encontraron conformes.
+                           </p>`
+                    }
+                </div>
+                
+                 <div class="report-section">
+                    <span class="report-label">Acción Requerida</span>
+                    <p class="mt-2 text-sm font-medium ${finalStatus === 'APROBADO' ? 'text-gray-700' : 'text-red-700'}">${requiredAction}</p>
+                </div>
+            `;
+
+            showResults(`Reporte: ${inspectionData.joint} [${finalStatus}]`, reportHtml);
+        }
+
+        // --- Inicialización y Listeners ---
+        document.addEventListener('DOMContentLoaded', () => {
+            showPhase('phase-0');
+            formPhase0.addEventListener('submit', handlePhase0);
+            formPhase1.addEventListener('submit', handlePhase1);
+            formPhase2.addEventListener('submit', handlePhase2);
+            formPhase3.addEventListener('submit', handlePhase3);
+
+            resultsModal.addEventListener('click', (e) => {
+                if (e.target === resultsModal) hideResults();
+            });
+        });
+    </script>
+</body>
+</html>
